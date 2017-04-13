@@ -29,22 +29,22 @@ num_chars = 200
 
 sess = tf.InteractiveSession()
 
-# load the text data
-# text is a huge array containing characters
-text_in, text_out, vocab = utils.load_data(dataset)
-
-# generate x and y from the text
-x, y = utils.preprocess(inputs=text_in, targets=text_out, vocab=vocab,
-                        batch_size=batch_size, seq_length=seq_length, embed_size=embed_size)
-
-# build the char-rnn model
-rnn_model = model(width=width, depth=depth, is_training=is_training,
-                  seq_length=seq_length, embed_size=embed_size, sess=sess)
-
-# load checkpoint if exists
-rnn_model.load_checkpoint()
-
 if is_training:
+    # load the text data
+    # text is a huge array containing characters
+    text_in, text_out, vocab = utils.load_data(dataset)
+
+    # generate x and y from the text
+    x, y = utils.preprocess(inputs=text_in, targets=text_out, vocab=vocab,
+                            batch_size=batch_size, seq_length=seq_length, embed_size=embed_size)
+
+    # build the char-rnn model
+    rnn_model = model(width=width, depth=depth, is_training=is_training,
+                      seq_length=seq_length, embed_size=embed_size, sess=sess)
+
+    # load checkpoint if exists
+    rnn_model.load_checkpoint()
+
     # train the model
     rnn_model.train(inputs=x, outputs=y, batch_size=batch_size,
                     epochs=epochs, lr=learning_rate, decay=weight_decay,
@@ -54,6 +54,13 @@ if is_training:
     rnn_model.save_checkpoint()
 
 else:
+    # build the char-rnn model
+    rnn_model = model(width=width, depth=depth, is_training=is_training,
+                      seq_length=seq_length, embed_size=embed_size, sess=sess)
+
+    # load checkpoint
+    rnn_model.load_checkpoint()
+
     # generate texts
     rnn_model.generate_sample(num_chars=num_chars, primer='I am')
 
