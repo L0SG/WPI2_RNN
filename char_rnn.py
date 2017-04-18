@@ -16,7 +16,7 @@ class model:
         return
 
 
-    def build(self):
+    def build(self, batch_size):
         """
         build the model
         should return target of the same size
@@ -25,7 +25,41 @@ class model:
         :return: final state output for targets
         softmax will be calculated at train & generate_sample
         """
-        logits = None
+        from tensorflow.contrib import rnn
+
+        # input placeholder
+        x = self.inputs_placeholder
+        # define standard lstm networks
+        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width)
+        lstm_layers = rnn.MultiRNNCell([lstm_cell] * self.depth)
+
+        # define the empty outputs list for appending the output of each time step
+        lstm_outputs = []
+        # initial lstm state is zero
+        state = lstm_layers.zero_state(batch_size=batch_size, dtype=tf.float32)
+
+        # lstm loop (inefficient) for studying purpose
+        # using RNN API (tf.nn.rnn) is better
+        with tf.variable_scope('lstm') as scope_lstm:
+            for time_step in range(self.seq_length):
+                # create variables (lstm_output, state) at the initial step, and reuse this after
+                if time_step > 0:
+                    scope_lstm.reuse_variables()
+                # feed the inputs of [all batches, one time step, all embeddings], and states
+                (lstm_output, state) = lstm_layers(x[:, time_step, :], state)
+                # append the output, state is not needed out of the loop
+                lstm_outputs.append(lstm_output)
+
+        # calculate logits of each step from lstm_outputs
+        # WARNING: currently target_placeholder assumes embed vector, not vocab index
+        # need to change target to vocab for doing softmax & Xentropy loss
+
+        # fck should've known
+        with tf.variable_scope('logits'):
+            W = tf.get_variable('W', [self.width, self.embed_size]) # will change embed_size to vocab_size
+            b = tf.get_variable('b', [self.embed_size], initializer=tf.constant_initializer(0.)) # zero bias for start, just to be safe
+        logits = [tf.matmul(output, W) + b for output in lstm_outputs] # list of (batch size, embed_size), for each time step
+
         return logits
 
     def train(self, inputs, outputs, batch_size, epochs, lr, decay, validation_split):
@@ -46,7 +80,7 @@ class model:
         # load checkpoints
 
         # build the model
-        logits = model.build()
+        logits = self.build(batch_size=batch_size)
         # calculate loss and apply grads
 
         # save checkpoints every few epochs
