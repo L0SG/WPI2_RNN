@@ -13,7 +13,7 @@ class model:
         self.inputs_placeholder = tf.placeholder(tf.float32,
                                                  shape=[None, self.seq_length, self.embed_size])
         self.targets_placeholder = tf.placeholder(tf.float32,
-                                                  shape=[None, self.seq_length, self.embed_size])
+                                                  shape=[None, self.seq_length])
         return
 
 
@@ -66,22 +66,54 @@ class model:
         calculate loss and apply gradients
         load checkpoint if exists
         save checkpoint every few epochs
-        :param inputs:
-        :param outputs:
-        :param batch_size:
-        :param epochs:
-        :param lr:
-        :param decay:
-        :param validation_split:
-        :return:
+        :param inputs: input data for training, has shape of inputs_placeholder
+        :param outputs: output data for training, has shape of targets_placeholder
+        :param batch_size: batch size
+        :param epochs: pre-specified max epochs
+        :param lr: learning rate
+        :param decay: factor for lr decay
+        :param validation_split: portion of validation data of range [0, 1]
+        :return: None
         """
+
+        from tensorflow.contrib.seq2seq import sequence_loss
+        from tensorflow import train
         # load checkpoints
+        ######### implement here
+
+        #########
 
         # build the model
+        x = self.inputs_placeholder
+        y = self.targets_placeholder
         logits = self.build(batch_size=batch_size)
-        # calculate loss and apply grads
 
+        # shape of y : [None, seq_length], shape of logits : [None, seq_length, vocab_size]
+        # convert shape of logits to match y: from one-hot to integer vocab index
+        ######### implement here
+
+        #########
+
+        # calculate loss and cost
+        loss = sequence_loss(logits=logits, targets=y)
+        cost = tf.reduce_sum(loss) / batch_size / self.seq_length
+
+        # load trainable variables
+        tvars = tf.trainable_variables()
+        # apply gradient clipping for stable learning of RNN
+        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars), clip_norm=5.)
+
+        # define optimizer
+        optimizer = train.AdamOptimizer(learning_rate=lr, beta1=decay)
+        # apply gradients of cost to trainable variables
+        train_op = optimizer.apply_gradients(cost, tvars)
+
+        # training loop
         # save checkpoints every few epochs
+        ######### implement here
+
+        #########
+
         return
 
 
