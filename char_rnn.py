@@ -21,8 +21,8 @@ class model:
         """
         build the model
         should return target of the same size
-        when training, it is [batch_size, seq_length, embed_size]
-        when sampling, it is [1, 1, embed_size]
+        when training, it is [batch_size, seq_length]
+        when sampling, it is [1, 1]
         :return: final state output for targets
         softmax will be calculated at train & generate_sample
         """
@@ -80,7 +80,8 @@ class model:
         from tensorflow import train
         # load checkpoints
         ######### implement here
-
+        checkpoint = self.load_checkpoint()
+        # apply checkpoint to the model
         #########
 
         # build the model
@@ -120,20 +121,26 @@ class model:
     def generate_sample(self, num_chars, primer):
         """
         generate samples from the model
-        :param num_chars:
-        :param primer:
-        :return:
+        :param num_chars: number of characters for sampling
+        :param primer: string for initial inputs of RNN
+        :return: None
         """
-        # load checkpoints
+        ######### implement here
+        checkpoint = self.load_checkpoint()
+        # apply checkpoint to the model
+        #########
 
         # build the model
-        logits = model.build()
+        x = self.inputs_placeholder
+        logits = model.build(batch_size=1)
+
         # generate character with vocab
         return
 
 
     def load_checkpoint(self):
-        return
+        checkpoint = None
+        return checkpoint
 
 
     def save_checkpoint(self):
