@@ -2,12 +2,13 @@ import tensorflow as tf
 import numpy as np
 
 class model:
-    def __init__(self, width, depth, is_training, seq_length, embed_size, sess):
+    def __init__(self, width, depth, is_training, seq_length, embed_size, vocab_size, sess):
         self.width = width
         self.depth = depth
         self.is_training = is_training
         self.seq_length = seq_length
         self.embed_size = embed_size
+        self.vocab_size = vocab_size
         self.sess = sess
         self.inputs_placeholder = tf.placeholder(tf.float32,
                                                  shape=[None, self.seq_length, self.embed_size])
@@ -51,14 +52,11 @@ class model:
                 lstm_outputs.append(lstm_output)
 
         # calculate logits of each step from lstm_outputs
-        # WARNING: currently target_placeholder assumes embed vector, not vocab index
-        # need to change target to vocab for doing softmax & Xentropy loss
 
-        # fck should've known
         with tf.variable_scope('logits'):
-            W = tf.get_variable('W', [self.width, self.embed_size]) # will change embed_size to vocab_size
-            b = tf.get_variable('b', [self.embed_size], initializer=tf.constant_initializer(0.)) # zero bias for start, just to be safe
-        logits = [tf.matmul(output, W) + b for output in lstm_outputs] # list of (batch size, embed_size), for each time step
+            W = tf.get_variable('W', [self.width, self.vocab_size])
+            b = tf.get_variable('b', [self.vocab_size], initializer=tf.constant_initializer(0.)) # zero bias for start, just to be safe
+        logits = [tf.matmul(output, W) + b for output in lstm_outputs] # list of (batch size, vocab_size), for each time step
 
         return logits
 

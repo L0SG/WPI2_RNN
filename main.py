@@ -39,10 +39,13 @@ if is_training:
     x, y = utils.preprocess(inputs=text_in, targets=text_out, vocab=vocab,
                             batch_size=batch_size, seq_length=seq_length, embed_size=embed_size)
     """
+
+    # calculate vocab_size
+    vocab_size = 10
     x, y = None, None
     # build the char-rnn model
-    rnn_model = model(width=width, depth=depth, is_training=is_training,
-                      seq_length=seq_length, embed_size=embed_size, sess=sess)
+    rnn_model = model(width=width, depth=depth, is_training=is_training, seq_length=seq_length,
+                      embed_size=embed_size, vocab_size=vocab_size, sess=sess)
 
     # load checkpoint if exists
     rnn_model.load_checkpoint()
