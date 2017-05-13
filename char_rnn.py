@@ -3,29 +3,62 @@ import numpy as np
 import time
 
 class model:
-    def __init__(self, width, depth, is_training, seq_length, embed_size, sess):
+    def __init__(self, width, depth, is_training, seq_length, vocab_size, sess):
         self.width = width
         self.depth = depth
         self.is_training = is_training
         self.seq_length = seq_length
-        self.embed_size = embed_size
+        self.vocab_size = vocab_size
         self.sess = sess
         self.inputs_placeholder = tf.placeholder(tf.float32,
-                                                 shape=[None, self.seq_length, self.embed_size])
+                                                 shape=[None, self.seq_length, self.vocab_size])
         self.targets_placeholder = tf.placeholder(tf.float32,
-                                                 shape=[None, self.seq_length, self.embed_size])
+                                                 shape=[None, self.seq_length, self.vocab_size])
         return
 
-    def build(self):
+    def build(self, batch_size):
         """
         build the model
         should return target of the same size
-        when training, it is [batch_size, seq_length, embed_size]
-        when sampling, it is [1, 1, embed_size]
+        when training, it is [batch_size, seq_length]
+        when sampling, it is [1, 1]
         :return: final state output for targets
         softmax will be calculated at train & generate_sample
         """
-        logits = None
+        from tensorflow.contrib import rnn
+
+        # input placeholder
+        x = self.inputs_placeholder
+        # define standard lstm networks
+        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width, reuse=tf.get_variable_scope().reuse)
+        lstm_layers = rnn.MultiRNNCell([lstm_cell] * self.depth)
+
+        # define the empty outputs list for appending the output of each time step
+        lstm_outputs = []
+        # initial lstm state is zero
+        state = lstm_layers.zero_state(batch_size=batch_size, dtype=tf.float32)
+
+        # lstm loop (inefficient) for studying purpose
+        # using RNN API (tf.nn.rnn) is better
+        with tf.variable_scope('lstm') as scope_lstm:
+            for time_step in range(self.seq_length):
+                # create variables (lstm_output, state) at the initial step, and reuse this after
+                if time_step > 0:
+                    scope_lstm.reuse_variables()
+                # feed the inputs of [all batches, one time step, all embeddings], and states
+                (lstm_output, state) = lstm_layers(x[:, time_step, :], state)
+                # append the output, state is not needed out of the loop
+                lstm_outputs.append(lstm_output)
+
+        # calculate logits of each step from lstm_outputs
+
+        with tf.variable_scope('logits'):
+            W = tf.get_variable('W', [self.width, self.vocab_size])
+            b = tf.get_variable('b', [self.vocab_size],
+                                initializer=tf.constant_initializer(0.))  # zero bias for start, just to be safe
+        logits = [tf.matmul(output, W) + b for output in
+                  lstm_outputs]  # list of (batch size, vocab_size), for each time step
+
         return logits
 
     def train(self, inputs, outputs, batch_size, epochs, lr, decay, validation_split):
@@ -46,6 +79,7 @@ class model:
 
         from tensorflow.contrib.seq2seq import sequence_loss
         from tensorflow import train
+
         # load checkpoints
         ######### implement here
         checkpoint = self.load_checkpoint()
@@ -61,11 +95,11 @@ class model:
         # shape of y : [None, seq_length], shape of logits : [None, seq_length, vocab_size]
         # convert shape of logits to match y: from one-hot to integer vocab index
         ######### implement here
-
+        logits_int = tf.argmax(logits, axis=2)
         #########
 
         # calculate loss and cost
-        loss = sequence_loss(logits=logits, targets=y)
+        loss = sequence_loss(logits=logits_int, targets=y)
         cost = tf.reduce_sum(loss) / batch_size / self.seq_length
         train_cost_summary = tf.summary.scalar('train_cost', cost)
         test_cost_summary = tf.summary.scalar('test_cost', cost)
