@@ -30,7 +30,7 @@ class model:
         # input placeholder
         x = self.inputs_placeholder
         # define standard lstm networks
-        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width, reuse=tf.get_variable_scope().reuse)
+        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width)
         lstm_layers = rnn.MultiRNNCell([lstm_cell] * self.depth)
 
         # define the empty outputs list for appending the output of each time step
