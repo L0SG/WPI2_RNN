@@ -29,7 +29,10 @@ dataset = './data/shakespeare.txt'
 # hyperparameters for sampling
 num_chars = 200
 
-sess = tf.InteractiveSession()
+# session with vram limit
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.InteractiveSession(config=config)
 sess.run(tf.global_variables_initializer())
 
 

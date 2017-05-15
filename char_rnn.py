@@ -13,8 +13,8 @@ class model:
         self.sess = sess
         self.inputs_placeholder = tf.placeholder(tf.float32,
                                                  shape=[None, self.seq_length, self.vocab_size])
-        self.targets_placeholder = tf.placeholder(tf.float32,
-                                                 shape=[None, self.seq_length, self.vocab_size])
+        self.targets_placeholder = tf.placeholder(tf.int32,
+                                                 shape=[None, self.seq_length])
         return
 
     def build(self, batch_size):
@@ -57,13 +57,15 @@ class model:
                 lstm_outputs.append(lstm_output)
 
         # calculate logits of each step from lstm_outputs
-
         with tf.variable_scope('logits'):
             W = tf.get_variable('W', [self.width, self.vocab_size])
             b = tf.get_variable('b', [self.vocab_size],
                                 initializer=tf.constant_initializer(0.))  # zero bias for start, just to be safe
-        logits = [tf.matmul(output, W) + b for output in
-                  lstm_outputs]  # list of (batch size, vocab_size), for each time step
+        # currently logits is list of 2d tensors
+        logits = [tf.matmul(output, W) + b for output in lstm_outputs]  # list of (batch size, vocab_size), for each time step
+        # convert to 3d tensors, by stacking the list
+        # sequence_loss in seq2seq api assumes 3d tensors
+        logits = tf.stack(logits)
 
         return logits
 
@@ -100,13 +102,18 @@ class model:
         sess = self.sess
 
         # shape of y : [None, seq_length], shape of logits : [None, seq_length, vocab_size]
+        """
         # convert shape of logits to match y: from one-hot to integer vocab index
         ######### implement here
         logits_int = tf.argmax(logits, axis=2)
         #########
+        """
+
+        # we assume unbiased estimates of the loss per time step
+        loss_weights = tf.constant(np.ones((batch_size, self.seq_length)), dtype=tf.float32)
 
         # calculate loss and cost
-        loss = sequence_loss(logits=logits_int, targets=y)
+        loss = sequence_loss(logits=logits, targets=y, weights=loss_weights)
         cost = tf.reduce_sum(loss) / batch_size / self.seq_length
         train_cost_summary = tf.summary.scalar('train_cost', cost)
         test_cost_summary = tf.summary.scalar('test_cost', cost)
@@ -119,7 +126,7 @@ class model:
         # define optimizer
         optimizer = train.AdamOptimizer(learning_rate=lr, beta1=decay)
         # apply gradients of cost to trainable variables
-        train_op = optimizer.apply_gradients(cost, tvars)
+        train_op = optimizer.apply_gradients({cost, tvars})
 
         # writer for tensorboard
         writer = tf.summary.FileWriter('./tmp/char_rnn', sess.graph)
