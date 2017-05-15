@@ -31,8 +31,13 @@ class model:
         # input placeholder
         x = self.inputs_placeholder
         # define standard lstm networks
-        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width)
-        lstm_layers = rnn.MultiRNNCell([lstm_cell] * self.depth)
+        lstm_cell = rnn.LayerNormBasicLSTMCell(num_units=self.width, reuse=tf.get_variable_scope().reuse)
+
+        # currently multiRNNCell seems to have a bug
+        # lstm_layers = rnn.MultiRNNCell([lstm_cell for _ in range(self.depth)])
+
+        # just one layer instead
+        lstm_layers = lstm_cell
 
         # define the empty outputs list for appending the output of each time step
         lstm_outputs = []
@@ -196,15 +201,14 @@ class model:
         for n in range(num_chars):
             data = np.zeros((1, 1))
             data[0, 0] = vocab[char]
+
             logits_r = self.sess.run([logits], feed={x: data})
             p = tf.nn.softmax(logits_r)[0]
 
             sample = weighted_pick(p)
-
             pred = vocab[sample]
             ret += pred
             char = pred
-
         print(ret)
 
 

@@ -24,7 +24,7 @@ epochs = 100
 learning_rate = 1e-4
 weight_decay = 0.99
 validation_split = 0.1
-dataset = './dataset/shakespeare.txt'
+dataset = './data/shakespeare.txt'
 
 # hyperparameters for sampling
 num_chars = 200
