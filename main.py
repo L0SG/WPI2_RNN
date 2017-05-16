@@ -33,13 +33,17 @@ num_chars = 200
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.InteractiveSession(config=config)
-sess.run(tf.global_variables_initializer())
+
 
 
 if is_training:
     # load the text data
     # text is a huge array containing characters
     x, y, vocab = utils.load_data(file_path=dataset, seq_length=seq_length, sess=sess)
+
+    # convert shape of outputs to match y: from one-hot to integer vocab index
+    y_int = np.argmax(y, axis=2)
+
     # generate x and y from the text
     #x, y = utils.preprocess(inputs=text_in, targets=text_out, vocab=vocab,
     #                        batch_size=batch_size, seq_length=seq_length, embed_size=embed_size)
@@ -62,7 +66,7 @@ if is_training:
     rnn_model.load_checkpoint()
 
     # train the model
-    rnn_model.train(inputs=x, outputs=y, batch_size=batch_size,
+    rnn_model.train(inputs=x, outputs=y_int, batch_size=batch_size,
                     epochs=epochs, lr=learning_rate, decay=weight_decay,
                     validation_split=validation_split)
 

@@ -13,7 +13,7 @@ class model:
         self.sess = sess
         self.inputs_placeholder = tf.placeholder(tf.float32,
                                                  shape=[None, self.seq_length, self.vocab_size])
-        self.targets_placeholder = tf.placeholder(tf.int32,
+        self.targets_placeholder = tf.placeholder(tf.int64,
                                                  shape=[None, self.seq_length])
         return
 
@@ -88,26 +88,12 @@ class model:
         from tensorflow.contrib.seq2seq import sequence_loss
         from tensorflow import train
 
-        # load checkpoints
-        ######### implement here
-        checkpoint = self.load_checkpoint()
-        # apply checkpoint to the model
-        #########
-
         # build the model
+        # shape of y : [None, seq_length], shape of x and logits : [None, seq_length, vocab_size]
         x = self.inputs_placeholder
         y = self.targets_placeholder
-
         logits = self.build(batch_size=batch_size)
         sess = self.sess
-
-        # shape of y : [None, seq_length], shape of logits : [None, seq_length, vocab_size]
-        """
-        # convert shape of logits to match y: from one-hot to integer vocab index
-        ######### implement here
-        logits_int = tf.argmax(logits, axis=2)
-        #########
-        """
 
         # we assume unbiased estimates of the loss per time step
         loss_weights = tf.constant(np.ones((batch_size, self.seq_length)), dtype=tf.float32)
@@ -126,7 +112,7 @@ class model:
         # define optimizer
         optimizer = train.AdamOptimizer(learning_rate=lr, beta1=decay)
         # apply gradients of cost to trainable variables
-        train_op = optimizer.apply_gradients({cost, tvars})
+        train_op = optimizer.apply_gradients(zip(grads, tvars))
 
         # writer for tensorboard
         writer = tf.summary.FileWriter('./tmp/char_rnn', sess.graph)
@@ -136,8 +122,10 @@ class model:
         # split data into training/test set
         seed = np.random.randint(0, 100, 1)
         inputs = sess.run(tf.random_shuffle(inputs, seed))
-        outputs = sess.run(tf.random_shuffle(outputs,seed))
-        num_valid = validation_split * inputs.shape[0]
+        outputs = sess.run(tf.random_shuffle(outputs, seed))
+
+        # split the training set to train and valid set
+        num_valid = np.int32(validation_split * inputs.shape[0])
         x_train = inputs[0:num_valid]
         y_train = outputs[0:num_valid]
         x_test = inputs[num_valid:]
@@ -147,6 +135,15 @@ class model:
         total_batch = int(len(x_train) // batch_size)
         # start training iteration
         print("Training started...")
+
+        # initialize variables
+        self.sess.run(tf.global_variables_initializer())
+        """
+        # define saver
+        saver = tf.train.Saver(tf.global_variables())
+        # load checkpoints
+        saver.restore(self.sess, tf.train.get_checkpoint_state('./save'))
+        """
         # start timer to measure the time taken for a step
         start_time = time.time()
         # for each epoch
@@ -157,10 +154,14 @@ class model:
             y_train = sess.run(tf.random_shuffle(y_train, seed))
             # for each mini-batch
             for step in range(total_batch):
+                # calculate index for current batch
                 start_ind = step * batch_size
                 end_ind = (step + 1) * batch_size
+                # generate feed_dict
                 train_feed = {x: x_train[start_ind:end_ind], y: y_train[start_ind:end_ind]}
+                # train step
                 write_train_cost, _ = self.sess.run([train_cost_summary, train_op], feed_dict=train_feed)
+                # write cost every several steps
                 if step % 100 == 0:
                     writer.add_summary(write_train_cost, (epoch * total_batch + step))
                     # test
@@ -171,11 +172,12 @@ class model:
                           % ((epoch + 1), (step + 1) * batch_size, x_train.shape[0], (time.time() - start_time),
                              loss.eval(train_feed), loss.eval(test_feed)))
                     start_time = time.time()
+                    """
+                    # save checkpoint
+                    saver.save(self.sess, './save/model.ckpt',
+                               global_step=epoch * total_batch + step)
+                    """
 
-        # save checkpoints every few epochs
-        ######### implement here
-
-        #########
         print("Optimization Finished!")
         tf.summary.FileWriter.close(writer)
         return
@@ -223,11 +225,11 @@ class model:
         ckpt = tf.train.get_checkpoint_state('save')
         if ckpt and ckpt.model_checkpoint_path:
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
-        #return checkpoint
+        return
 
 
     def save_checkpoint(self):
         checkpoint_path = os.path.join('save', 'model.ckpt')
         self.saver.save(self.sess, checkpoint_path)
         print("model saved to {}".format(checkpoint_path))
-        #return
+        return
