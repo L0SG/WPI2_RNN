@@ -145,7 +145,7 @@ class model:
         self.sess.run(tf.global_variables_initializer())
 
         # define saver
-        self.saver = tf.train.Saver(tf.trainable_variables())
+        self.saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=1)
         # load checkpoints
         self.load_checkpoint()
 
@@ -154,9 +154,12 @@ class model:
         # for each epoch
         for epoch in range(epochs):
             # shuffle training set
-            seed = np.random.randint(0, 100, 1)
-            x_train = sess.run(tf.random_shuffle(x_train, seed))
-            y_train = sess.run(tf.random_shuffle(y_train, seed))
+            feed = list(zip(x_train, y_train))
+            np.random.shuffle(feed)
+            x_train, y_train = zip(*feed)
+            x_train = np.array(x_train)
+            y_train = np.array(y_train)
+
             # for each mini-batch
             for step in range(total_batch):
                 # calculate index for current batch
