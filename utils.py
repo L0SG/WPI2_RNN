@@ -1,6 +1,7 @@
 import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Embedding
+from keras.utils import to_categorical
 import numpy as np
 import codecs
 import os
@@ -43,9 +44,13 @@ def load_data(file_path, seq_length, sess):
     y_reshape = np.reshape(y_token[: len(y_token) // seq_length * seq_length], (-1, seq_length))
 
     # one-hot vector
-    x = sess.run(tf.one_hot(x_reshape, len(vocab), axis=-1))
-    y = sess.run(tf.one_hot(y_reshape, len(vocab), axis=-1))
-
+    x = []
+    y = []
+    for idx in range(x_reshape.shape[0]):
+        x.append(to_categorical(x_reshape[idx], num_classes=len(vocab)))
+        y.append(to_categorical(y_reshape[idx], num_classes=len(vocab)))
+    x = np.array(x)
+    y = np.array(y)
     return x, y, vocab
 
 

@@ -64,8 +64,8 @@ class model:
         # currently logits is list of 2d tensors
         logits = [tf.matmul(output, W) + b for output in lstm_outputs]  # list of (batch size, vocab_size), for each time step
         # convert to 3d tensors, by stacking the list
-        # sequence_loss in seq2seq api assumes 3d tensors
-        logits = tf.stack(logits)
+        # sequence_loss in seq2seq api assumes 3d tensors of [batch_size, seq_length, vocab_size]
+        logits = tf.stack(logits, axis=1)
 
         return logits
 
@@ -98,9 +98,11 @@ class model:
         # we assume unbiased estimates of the loss per time step
         loss_weights = tf.constant(np.ones((batch_size, self.seq_length)), dtype=tf.float32)
 
-        # calculate loss and cost
+        # calculate loss
+        # sequence_loss returns scalar loss
         loss = sequence_loss(logits=logits, targets=y, weights=loss_weights)
-        cost = tf.reduce_sum(loss) / batch_size / self.seq_length
+        # cost = tf.reduce_sum(loss) / batch_size / self.seq_length
+        cost = loss
         train_cost_summary = tf.summary.scalar('train_cost', cost)
         test_cost_summary = tf.summary.scalar('test_cost', cost)
 
@@ -121,15 +123,18 @@ class model:
         import time
         # split data into training/test set
         seed = np.random.randint(0, 100, 1)
-        inputs = sess.run(tf.random_shuffle(inputs, seed))
-        outputs = sess.run(tf.random_shuffle(outputs, seed))
+        feed = list(zip(inputs, outputs))
+        np.random.shuffle(feed)
+        inputs_feed, outputs_feed = zip(*feed)
+        inputs_feed = np.array(inputs_feed)
+        outputs_feed = np.array(outputs_feed)
 
         # split the training set to train and valid set
-        num_valid = np.int32(validation_split * inputs.shape[0])
-        x_train = inputs[0:num_valid]
-        y_train = outputs[0:num_valid]
-        x_test = inputs[num_valid:]
-        y_test = outputs[num_valid:]
+        num_valid = np.int32(validation_split * inputs_feed.shape[0])
+        x_train = inputs_feed[0:num_valid]
+        y_train = outputs_feed[0:num_valid]
+        x_test = inputs_feed[num_valid:]
+        y_test = outputs_feed[num_valid:]
 
         # calculate the number of mini batch
         total_batch = int(len(x_train) // batch_size)
@@ -138,12 +143,12 @@ class model:
 
         # initialize variables
         self.sess.run(tf.global_variables_initializer())
-        """
+
         # define saver
-        saver = tf.train.Saver(tf.global_variables())
+        self.saver = tf.train.Saver(tf.trainable_variables())
         # load checkpoints
-        saver.restore(self.sess, tf.train.get_checkpoint_state('./save'))
-        """
+        self.load_checkpoint()
+
         # start timer to measure the time taken for a step
         start_time = time.time()
         # for each epoch
@@ -162,7 +167,7 @@ class model:
                 # train step
                 write_train_cost, _ = self.sess.run([train_cost_summary, train_op], feed_dict=train_feed)
                 # write cost every several steps
-                if step % 100 == 0:
+                if step % 10 == 0:
                     writer.add_summary(write_train_cost, (epoch * total_batch + step))
                     # test
                     test_feed = {x: x_test[start_ind:end_ind], y: y_test[start_ind:end_ind]}
@@ -172,11 +177,8 @@ class model:
                           % ((epoch + 1), (step + 1) * batch_size, x_train.shape[0], (time.time() - start_time),
                              loss.eval(train_feed), loss.eval(test_feed)))
                     start_time = time.time()
-                    """
-                    # save checkpoint
-                    saver.save(self.sess, './save/model.ckpt',
-                               global_step=epoch * total_batch + step)
-                    """
+
+            self.save_checkpoint()
 
         print("Optimization Finished!")
         tf.summary.FileWriter.close(writer)
@@ -224,7 +226,8 @@ class model:
     def load_checkpoint(self):
         ckpt = tf.train.get_checkpoint_state('save')
         if ckpt and ckpt.model_checkpoint_path:
-            self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess,
+                               tf.train.latest_checkpoint('save'))
         return
 
 

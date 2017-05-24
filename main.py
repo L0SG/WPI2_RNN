@@ -62,16 +62,10 @@ if is_training:
     rnn_model = model(width=width, depth=depth, is_training=is_training, seq_length=seq_length,
                       vocab_size=vocab_size, sess=sess)
 
-    # load checkpoint if exists
-    rnn_model.load_checkpoint()
-
     # train the model
     rnn_model.train(inputs=x, outputs=y_int, batch_size=batch_size,
                     epochs=epochs, lr=learning_rate, decay=weight_decay,
                     validation_split=validation_split)
-
-    # save checkpoint of the model
-    rnn_model.save_checkpoint()
 
 else:
 
@@ -83,10 +77,6 @@ else:
     # build the char-rnn model
     rnn_model = model(width=width, depth=depth, is_training=is_training, seq_length=seq_length,
                       vocab_size=vocab_size, sess=sess)
-
-
-    # load checkpoint
-    rnn_model.load_checkpoint()
 
     # generate texts
     rnn_model.generate_sample(vocab=vocab, dic_vocab=dic_vocab, num_chars=num_chars, primer='I am')
